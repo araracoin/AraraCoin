@@ -19,10 +19,9 @@ contract StaticTaxHandler is ITaxHandler, Ownable {
     /// @dev The set of addresses exempt from tax.
     EnumerableSet.AddressSet private _exempted;
 
-    /// @notice How much tax to collect in basis points. 10,000 basis points is 100%.
     uint256 public taxPercentage;
 
-    /// @notice Emitted when the tax basis points number is updated.
+    /// @notice Emitted when the tax is updated.
     event TaxPercentageUpdated(uint256 oldTaxPercentage, uint256 newTaxPercentage);
 
     /// @notice Emitted when an address is added to or removed from the exempted addresses set.
@@ -46,7 +45,7 @@ contract StaticTaxHandler is ITaxHandler, Ownable {
             return 0;
         }
 
-        return amount * taxPercentage / 100;
+        return amount * taxPercentage / 100_000_000;
     }
 
     /**
@@ -55,7 +54,7 @@ contract StaticTaxHandler is ITaxHandler, Ownable {
      */
     function setTaxPercentage(uint256 newTaxPercentage) external onlyOwner {
         require(
-            newTaxPercentage < 0,
+            newTaxPercentage >= 0,
             "Invalid Value."
         );
 

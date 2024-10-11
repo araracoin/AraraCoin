@@ -1,80 +1,6 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-    "/Users/joaosouza/Projects/AraraCoin/contracts/Box.sol": {
-      "lastModificationDate": 1726408201445,
-      "contentHash": "abd03923f45723a4cfb0398b45c6b5d3",
-      "sourceName": "contracts/Box.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "evmVersion": "paris",
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "@openzeppelin/contracts/access/Ownable.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.24"
-      ],
-      "artifacts": [
-        "Box"
-      ]
-    },
-    "/Users/joaosouza/Projects/AraraCoin/contracts/Lock.sol": {
-      "lastModificationDate": 1726407521125,
-      "contentHash": "dacf0d5cb5b45dc83086de5bc1c26c2c",
-      "sourceName": "contracts/Lock.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "evmVersion": "paris",
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.24"
-      ],
-      "artifacts": [
-        "Lock"
-      ]
-    },
     "/Users/joaosouza/Projects/AraraCoin/node_modules/@openzeppelin/contracts/access/Ownable.sol": {
       "lastModificationDate": 1726407984619,
       "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
@@ -379,8 +305,8 @@
       ]
     },
     "/Users/joaosouza/Projects/AraraCoin/contracts/AraraCoin.sol": {
-      "lastModificationDate": 1727168437761,
-      "contentHash": "2cb8aad88ce068f985aa3089d9b52bfc",
+      "lastModificationDate": 1728660019812,
+      "contentHash": "bc6a7fae0dbaac77811a08c8c3122f14",
       "sourceName": "contracts/AraraCoin.sol",
       "solcConfig": {
         "version": "0.8.24",
@@ -986,47 +912,9 @@
         "ITaxHandler"
       ]
     },
-    "/Users/joaosouza/Projects/AraraCoin/contracts/tax/ZeroTaxHandler.sol": {
-      "lastModificationDate": 1727105829539,
-      "contentHash": "0822f7da6407d30a0f9ae59a79b124e5",
-      "sourceName": "contracts/tax/ZeroTaxHandler.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "evmVersion": "paris",
-          "optimizer": {
-            "enabled": false,
-            "runs": 200
-          },
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./ITaxHandler.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ZeroTaxHandler"
-      ]
-    },
     "/Users/joaosouza/Projects/AraraCoin/contracts/tax/StaticTaxHandler.sol": {
-      "lastModificationDate": 1727108336039,
-      "contentHash": "a5d375ad0534b7f4558ca034320cb81c",
+      "lastModificationDate": 1728662617859,
+      "contentHash": "0d583fb3b4852b109cb7feb6483b4049",
       "sourceName": "contracts/tax/StaticTaxHandler.sol",
       "solcConfig": {
         "version": "0.8.24",
