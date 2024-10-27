@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // This contract is compatible with OpenZeppelin Contracts version ^5.0.0
-pragma solidity ^0.8.20;
+pragma solidity 0.8.24;
 
 // Importing OpenZeppelin libraries for ERC20, ERC20Permit, and Ownable functionality
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -162,6 +162,8 @@ contract AraraCoin is ERC20, ERC20Permit, AccessControl {
 
     // Function to update the tax wallet address, requires approval from multiple managers
     function setTaxWallet(address taxWalletAddress) public onlyRole(MANAGER_ROLE) {
+        require(taxWalletAddress != address(0), "Tax wallet address cannot be zero");
+
         bytes32 txHash = keccak256(abi.encodePacked("TaxWallet", taxWalletAddress));
         // Check if previous approvals have expired
         _processApproval(txHash);
