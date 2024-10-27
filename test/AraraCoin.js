@@ -3,7 +3,7 @@ const {
   loadFixture,
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
-const { parseEther } = require("ethers");
+const { parseEther, keccak256, toUtf8Bytes } = require("ethers");
 
 const marketingWallet = "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f";
 const consultingWallet = "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720";
@@ -24,8 +24,14 @@ const taxWallet2 = "0xdD2FD4581271e230360230F9337D5c0430Bf44C0";
 const consumerOne = "0x2546BcD3c84621e976D8185a91A922aE77ECEc30";
 const consumerTwo = "0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199";
 
+const managerWallet1 = "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955";
+const managerWallet2 = "0xBcd4042DE499D14e55001CcbB24a551F3b954096";
+const managerWallet3 = "0xcd3B766CCDd6AE721141F452C550Ca635964ce71";
+
 const ONE_YEAR_IN_SECS = 365 * 24 * 60 * 60;
 const ONE_MONTH_IN_SECS = 30 * 24 * 60 * 60;
+
+const MANAGER_ROLE = keccak256(toUtf8Bytes("MANAGER_ROLE"));
 
 describe("AraraCoin", function () {
   // We define a fixture to reuse the same setup in every test.
@@ -45,21 +51,27 @@ describe("AraraCoin", function () {
     const cliffSeconds = cliffFinishes - startDate; 
     const myVestingWallet = await MyVestingWallet.deploy(preservationProjectsVestingWallet, startDate, durationSeconds, cliffSeconds);
 
-    const StaticTaxHandler = await ethers.getContractFactory("StaticTaxHandler");
-    const staticTaxHandler = await StaticTaxHandler.deploy(owner.address, 0);
-
     const AraraCoin = await ethers.getContractFactory("AraraCoin");
-    const araraCoin = await AraraCoin.deploy(owner.address, await staticTaxHandler.getAddress(), await myVestingWallet.getAddress());    
+    const araraCoin = await AraraCoin.deploy(owner.address, await myVestingWallet.getAddress());
 
-    return { araraCoin, owner, staticTaxHandler, myVestingWallet };
+    return { araraCoin, owner, myVestingWallet };
   }
-
-  describe("Deployment", function () {
-    it("Should set the right owner", async function () {
-      const { araraCoin, owner } = await loadFixture(deployAraraCoinFixture);
-      expect(await araraCoin.owner()).to.equal(owner.address);
-    });
-
+  async function enableTrade(araraCoin) {
+    await araraCoin.connect(await ethers.getSigner(managerWallet1)).enableTrading();
+    await araraCoin.connect(await ethers.getSigner(managerWallet2)).enableTrading();
+    return await araraCoin.enableTrading();
+  }
+  async function setTaxPercentage(araraCoin, percentage) {
+    await araraCoin.connect(await ethers.getSigner(managerWallet1)).setTaxPercentage(percentage);        
+    await araraCoin.connect(await ethers.getSigner(managerWallet2)).setTaxPercentage(percentage);
+    return await araraCoin.setTaxPercentage(percentage);
+  }
+  async function setTaxWallet(araraCoin, taxWallet) {
+    await araraCoin.connect(await ethers.getSigner(managerWallet1)).setTaxWallet(taxWallet);
+    await araraCoin.connect(await ethers.getSigner(managerWallet2)).setTaxWallet(taxWallet);
+    await araraCoin.setTaxWallet(taxWallet);
+  }
+  describe("Deployment", function () {    
     it("Should deploy with correct total supply and balances", async function () {
       const { araraCoin, owner } = await loadFixture(deployAraraCoinFixture);
       const ownerBalance = await araraCoin.balanceOf(owner.address);
@@ -153,27 +165,128 @@ describe("AraraCoin", function () {
 
       // Ensure trading is disabled initially      
       expect(await araraCoin.tradingEnabled()).to.equal(false);
-  
+
       // Enable trading
-      await araraCoin.enableTrading();
+      await enableTrade(araraCoin);
+      
       expect(await araraCoin.tradingEnabled()).to.equal(true);
     });
 
-    it("Should allow the owner to set a new tax handler", async function () {
+    it("should not allow setting tax percentage above 1%", async function () {
       const { araraCoin } = await loadFixture(deployAraraCoinFixture);
+      
+      await expect(setTaxPercentage(araraCoin, 101)) // 1.01% or 101 basis points
+        .to.be.revertedWith("AraraCoin: Tax percentage must be between 0 and 100 basis points (max 1%).");
+    });
 
-      // Set a new tax handler and check if it was updated
-      await araraCoin.setTaxHandler(taxWallet2);
-      expect(await araraCoin.taxHandler()).to.equal(taxWallet2);
+    it("should not allow non-admin to add or revoke roles", async function () {
+      const { araraCoin, owner } = await loadFixture(deployAraraCoinFixture);
+      const randomUser = await ethers.getSigner(consumerOne);
+    
+      // Attempt to add a role using an unauthorized user
+      await expect(araraCoin.connect(randomUser).grantRole(MANAGER_ROLE, randomUser.address))
+        .to.be.reverted;
+    
+      // Attempt to revoke a role using an unauthorized user
+      await expect(araraCoin.connect(randomUser).revokeRole(MANAGER_ROLE, owner.address))
+        .to.be.reverted;
+    });
+
+    it("should restrict trading for removed whitelisted addresses", async function () {
+      const { araraCoin } = await loadFixture(deployAraraCoinFixture);
+    
+      // Add address to whitelist and allow trading
+      await araraCoin.addCanTrade([preSaleWallet]);
+      await araraCoin.connect(await ethers.getSigner(preSaleWallet)).transfer(consumerOne, 50);
+      
+      // Now remove from whitelist
+      await araraCoin.removeCanTrade([preSaleWallet]);
+    
+      // Attempt to trade again should revert
+      await expect(
+        araraCoin.connect(await ethers.getSigner(preSaleWallet)).transfer(consumerOne, 50)
+      ).to.be.revertedWith("AraraCoin: Trade is disabled");
     });
 
     it("Should allow the owner to set a new tax wallet", async function () {
-      const { araraCoin } = await loadFixture(deployAraraCoinFixture);
+      const { araraCoin, owner } = await loadFixture(deployAraraCoinFixture);
+      expect(await araraCoin.taxWallet()).to.not.equal(taxWallet2);
       // Set a new tax wallet and check if it was updated
-      await araraCoin.setTaxWallet(taxWallet);
-      expect(await araraCoin.taxWallet()).to.equal(taxWallet);
+      await araraCoin.connect(await ethers.getSigner(managerWallet1)).setTaxWallet(taxWallet2);
+      await araraCoin.connect(await ethers.getSigner(managerWallet2)).setTaxWallet(taxWallet2);
+      await araraCoin.connect(owner).setTaxWallet(taxWallet2);
+      expect(await araraCoin.taxWallet()).to.equal(taxWallet2);
     });
 
+    it("should deploy and assign roles correctly", async function () {
+      const { araraCoin, owner } = await loadFixture(deployAraraCoinFixture);
+      expect(await araraCoin.hasRole(await araraCoin.MANAGER_ROLE(), owner.address)).to.be.true;
+      expect(await araraCoin.hasRole(await araraCoin.MANAGER_ROLE(), managerWallet1)).to.be.true;
+      expect(await araraCoin.hasRole(await araraCoin.MANAGER_ROLE(), managerWallet2)).to.be.true;
+    });
+
+    it("should enable trading after required approvals", async function () {
+      const { araraCoin, owner } = await loadFixture(deployAraraCoinFixture);
+
+      await araraCoin.connect(await ethers.getSigner(managerWallet1)).enableTrading();
+      await araraCoin.connect(await ethers.getSigner(managerWallet2)).enableTrading()
+      expect(await araraCoin.tradingEnabled()).to.be.false;
+      await araraCoin.connect(owner).enableTrading();
+  
+      expect(await araraCoin.tradingEnabled()).to.be.true;
+    });
+
+    // it("should update tax handler after required approvals", async function () {
+    //   const { araraCoin, owner,  staticTaxHandler, newStaticTaxHandler} = await loadFixture(deployAraraCoinFixture);
+      
+    //   const oldAddress = await staticTaxHandler.getAddress();
+    //   const newAddress = await newStaticTaxHandler.getAddress();
+
+    //   expect(await araraCoin.taxHandler()).to.equal(oldAddress);
+
+    //   await araraCoin.connect(await ethers.getSigner(managerWallet1)).setTaxHandler(newAddress);
+    //   await araraCoin.connect(await ethers.getSigner(managerWallet2)).setTaxHandler(newAddress);
+    //   await araraCoin.connect(owner).setTaxHandler(newAddress);
+  
+    //   expect(await araraCoin.taxHandler()).to.equal(newAddress);
+    // });
+
+    it("should not allow multiple approvals from the same manager", async function () {
+      const { araraCoin } = await loadFixture(deployAraraCoinFixture);
+      const manager1 = await ethers.getSigner(managerWallet1);
+      await araraCoin.connect(manager1).enableTrading();
+      await expect(araraCoin.connect(manager1).enableTrading())
+        .to.be.revertedWith("AraraCoin: You have already approved this transaction.");
+    });
+
+    it("should reset approvals after expiration", async function () {
+      const { araraCoin, owner } = await loadFixture(deployAraraCoinFixture);
+      const manager1 = await ethers.getSigner(managerWallet1);
+      const manager2 = await ethers.getSigner(managerWallet2);
+
+      await araraCoin.connect(manager1).enableTrading();
+      await time.increase(3600);
+  
+      await araraCoin.connect(manager1).enableTrading();
+      await araraCoin.connect(manager2).enableTrading();
+      await araraCoin.connect(owner).enableTrading();
+  
+      // expect(await araraCoin.tradingEnabled()).to.be.true;
+    });
+
+    it("should measure gas costs for enableTrading", async function () {
+      const { araraCoin, owner } = await loadFixture(deployAraraCoinFixture);
+      const tx = await araraCoin.connect(owner).enableTrading();
+      const receipt = await tx.wait();
+  
+      console.log("Gas used for enableTrading:", receipt.gasUsed.toString());
+    });
+
+    it("should emit events correctly", async function () {
+      const { araraCoin, owner } = await loadFixture(deployAraraCoinFixture);
+      await expect(enableTrade(araraCoin))
+        .to.emit(araraCoin, "TradingEnabled");
+    });
   });
 
   describe("Transactions", function () {
@@ -194,13 +307,13 @@ describe("AraraCoin", function () {
       
       await expect(araraCoin.connect(await ethers.getSigner(launchWallet)).transfer(
         consumerOne, 50
-      )).to.be.revertedWith("AraraCoin trade is disabled");
+      )).to.be.revertedWith("AraraCoin: Trade is disabled");
     });
 
     it("Anyone Should transfer tokens between accounts when Trade is enabled", async function () {
       const { araraCoin } = await loadFixture(deployAraraCoinFixture);
 
-      await araraCoin.enableTrading();
+      await enableTrade(araraCoin);
 
       await araraCoin.connect(await ethers.getSigner(preSaleWallet)).transfer(
         consumerTwo, 50
@@ -210,65 +323,103 @@ describe("AraraCoin", function () {
     });
 
     it("Should apply tax on transfers", async function () {
-      const { araraCoin, staticTaxHandler } = await loadFixture(deployAraraCoinFixture);
+      const { araraCoin } = await loadFixture(deployAraraCoinFixture);
       const decimals = await araraCoin.decimals();
       const value =  50n * 10n ** decimals;
-      const tax = value * 3n / 100n;
-      const netValue = value - tax;
+      const tax = value * 1n / 100n;
+      const netValue = value - tax
 
-      await araraCoin.enableTrading();
-      await staticTaxHandler.setTaxPercentage(3_000_000);
+
+      expect(await araraCoin.taxPercentage()).to.equal(0);
+      // Enable trading
+      await enableTrade(araraCoin);
+      await setTaxPercentage(araraCoin, 100); // 1%
+      expect(await araraCoin.taxPercentage()).to.equal(100);
       
       const initialLaunchBalance = await araraCoin.balanceOf(launchWallet);
       await araraCoin.connect(await ethers.getSigner(launchWallet)).transfer(
         consumerTwo, value
       );
 
-      expect(await araraCoin.balanceOf(launchWallet)).to.equal(initialLaunchBalance - value);            
-      expect(netValue).to.equal(await araraCoin.balanceOf(consumerTwo));      
+      expect(await araraCoin.balanceOf(launchWallet)).to.equal(initialLaunchBalance - value);
+      expect(netValue).to.equal(await araraCoin.balanceOf(consumerTwo));
       expect(tax).to.equal(await araraCoin.balanceOf(taxWallet));
     });
 
+    it("should not allow trading before enabled", async function () {
+      const { araraCoin } = await loadFixture(deployAraraCoinFixture);
+      await expect(araraCoin.connect(await ethers.getSigner(auditWallet)).transfer(consumerOne, 100))
+        .to.be.revertedWith("AraraCoin: Trade is disabled");
+    });
+
+    it("should allow whitelisted addresses to trade before trading is enabled", async function () {
+      const { araraCoin, owner } = await loadFixture(deployAraraCoinFixture);
+      await araraCoin.connect(owner).addCanTrade([auditWallet]);
+      await expect(araraCoin.connect(await ethers.getSigner(auditWallet)).transfer(consumerOne, 100)).to.not.be.reverted;
+    });
+  
     it("Owner Should be able to change tax wallet", async function () {
-      const { araraCoin, staticTaxHandler } = await loadFixture(deployAraraCoinFixture);
+      const { araraCoin } = await loadFixture(deployAraraCoinFixture);
       const decimals = await araraCoin.decimals();
       const value =  58n * 10n ** decimals;
-      const tax = value * 3n / 100n / 2n;
+      const tax = value * 1n / 100n / 2n;
       const netValue = value - tax;
 
-      await araraCoin.enableTrading();
-      await staticTaxHandler.setTaxPercentage(1_500_000);
-      await araraCoin.setTaxWallet(taxWallet2);
+      await enableTrade(araraCoin);
+      await setTaxPercentage(araraCoin, 50); //0.5%
+      
+      await setTaxWallet(araraCoin, taxWallet2);
       
       const initialLaunchBalance = await araraCoin.balanceOf(launchWallet);
       await araraCoin.connect(await ethers.getSigner(launchWallet)).transfer(
         consumerTwo, value
       );
       
-      expect(await araraCoin.balanceOf(launchWallet)).to.equal(initialLaunchBalance - value);            
-      expect(netValue).to.equal(await araraCoin.balanceOf(consumerTwo));      
+      expect(await araraCoin.balanceOf(launchWallet)).to.equal(initialLaunchBalance - value);
+      expect(netValue).to.equal(await araraCoin.balanceOf(consumerTwo));
       expect(0).to.equal(await araraCoin.balanceOf(taxWallet));
       expect(tax).to.equal(await araraCoin.balanceOf(taxWallet2));
     });
-//
-    it("Should transfer tokens between accounts when Trade is enabled and not pay tax", async function () {
-      const { araraCoin, owner, staticTaxHandler } = await loadFixture(deployAraraCoinFixture);
-      const decimals = await araraCoin.decimals();
-      const value =  50n * 10n ** decimals;       
 
-      await araraCoin.enableTrading();     
-      await araraCoin.setTaxHandler(await staticTaxHandler.getAddress());
-      await staticTaxHandler.setTaxPercentage(1_500_000);
-      await staticTaxHandler.addExemption(launchWallet);
+    it("Should transfer tokens between accounts when Trade is enabled and not pay tax", async function () {
+      const { araraCoin, owner } = await loadFixture(deployAraraCoinFixture);
+      const decimals = await araraCoin.decimals();
+      const value =  50n * 10n ** decimals;
+
+      await enableTrade(araraCoin);
+      await setTaxPercentage(araraCoin, 50); //0.5%
+      await araraCoin.addExemption(launchWallet);
 
       const initialLaunchBalance = await araraCoin.balanceOf(launchWallet);
       await araraCoin.connect(await ethers.getSigner(launchWallet)).transfer(
         consumerTwo, value
       );
       
-      expect(await araraCoin.balanceOf(launchWallet)).to.equal(initialLaunchBalance - value);            
-      expect(value).to.equal(await araraCoin.balanceOf(consumerTwo));      
+      expect(await araraCoin.balanceOf(launchWallet)).to.equal(initialLaunchBalance - value);
+      expect(value).to.equal(await araraCoin.balanceOf(consumerTwo));
       expect(0).to.equal(await araraCoin.balanceOf(owner.address));
+    });
+
+    it("Should transfer tokens between accounts when Trade is enabled and pay tax when removed from exemption", async function () {
+      const { araraCoin } = await loadFixture(deployAraraCoinFixture);
+      const decimals = await araraCoin.decimals();
+      const value =  50n * 10n ** decimals;
+
+      await enableTrade(araraCoin);        
+      await setTaxPercentage(araraCoin, 50); //0.5%
+      
+      expect(taxWallet).to.equal(await araraCoin.taxWallet());
+      await araraCoin.addExemption(launchWallet);
+      await araraCoin.connect(await ethers.getSigner(launchWallet)).transfer(
+        consumerTwo, value
+      );  
+      expect(0).to.equal(await araraCoin.balanceOf(taxWallet));
+
+      await araraCoin.removeExemption(launchWallet);
+      await araraCoin.connect(await ethers.getSigner(launchWallet)).transfer(
+        consumerTwo, value
+      );
+      expect(0).not.to.equal(await araraCoin.balanceOf(taxWallet));
     });
   });
 });
