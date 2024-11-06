@@ -17,29 +17,31 @@ contract AraraCoin is ERC20, ERC20Permit, AccessControl {
     uint256 private constant FEE_DENOMINATOR = 10_000; // For 0.0001% precision
 
     // Addresses used for initial token distribution
-    address private constant marketingWallet = 0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f;
-    address private constant consultingWallet = 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720;
-    address private constant auditWallet = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
-    address private constant preSaleWallet = 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC;
-    address private constant launchWallet = 0x90F79bf6EB2c4f870365E785982E1f101E93b906;
-    address private constant investorsWallet = 0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65;
-    address private constant investorsYearOneVestingWallet = 0x71bE63f3384f5fb98995898A86B02Fb2426c5788;
-    address private constant investorsYearTwoVestingWallet = 0xFABB0ac9d68B0B445fB7357272Ff202C5651694a;
-    address private constant teamVestingWallet = 0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc;
-    address private constant foundersVestingWallet = 0x1CBd3b2770909D4e10f157cABC84C7264073C9Ec;
-    address private constant companyVestingWallet = 0xdF3e18d64BC6A983f673Ab319CCaE4f1a57C7097;
-    address private constant preservationProjectsVestingWallet = 0x976EA74026E726554dB657fA54763abd0C3a0aa9;
+    address private constant marketingWallet = 0x4Ac1dD9A136eb8909D65496555f48f48AC93068b;
+    address private constant consultingWallet = 0xC57C81e3782274770094DEdFcfd406e8921A1Bad;
+    address private constant auditWallet = 0x6E76a5E0E1D803F61CDBADD8133d3Ba0fBf340fB;
+    address private constant preSaleWallet = 0x511Cd5F2A3343fd62f5d0B50A09398b22991B099;
+    address private constant launchWallet = 0x3Fc60ef3e66c8b4BE6A6FD7b5638946B9F73cd4F;
+    address private constant investorsWallet = 0x2D9C08B659AdE495946b535E257AfF836348F4b6;
+    address private constant investorsYearOneVestingWallet = 0x5EdD8A9fD3dD7be76021Ee0D9c1fD4a0a3e1E0cE;
+    address private constant investorsYearTwoVestingWallet = 0x55EeEE4b21B4C4f7B483c877e0EcA591192E7946;
+    address private constant teamVestingWallet = 0xe8fA8c30340ABaBC4f1fc5CCe13200b13F1BceF3;
+    address private constant foundersVestingWallet = 0x14B268F8c98135860d32d8f8A5EE71eC8585E45C;
+    address private constant companyVestingWallet = 0x8221DE574E5aA63B28990d5DC758B67E0e5A864C;
+    address private constant preservationProjectsVestingWallet = 0xA7072f57E6B14043C8a457f192Be824EDa6DDb46;
 
     // Manager wallet addresses for management roles
-    address private managerWallet1;
-    address private constant managerWallet2 = 0xBcd4042DE499D14e55001CcbB24a551F3b954096;
-    address private constant managerWallet3 = 0x14dC79964da2C08b23698B3D3cc7Ca32193d9955;
+    address private constant managerWallet1 = 0xd24194E8b58b2C2602850BfDcE5d1B7d40529fe8;
+    address private constant managerWallet2 = 0xeE449C1Fcd61Cf8f97cD2D1c4B001FEb8d284CB0;
+    address private constant managerWallet3 = 0x12EaeAB21aA5d484463292B47657815211236d0b;
+    address private constant managerWallet4 = 0x50E93B660168aD1FF984aAB55143B1ad5e1a4313;
+    address private constant managerWallet5 = 0xa788b94fC0DEdADB4D8af310C34Ab6694c8BBB20;
     
     // Total supply of the token, set at 100 billion tokens, with 18 decimals
     uint256 private constant TOTAL_SUPPLY = 100_000_000_000 * 10 ** 18;
     
     // Address where tax funds will be sent
-    address public taxWallet = 0xbDA5747bFD65F08deb54cb465eB87D40e51B197E;
+    address public taxWallet = 0x1028C019315Ae92c826E778Eeb2a098cF8379B4C;
 
     // A boolean that indicates whether trading has been enabled
     bool public tradingEnabled;
@@ -75,21 +77,22 @@ contract AraraCoin is ERC20, ERC20Permit, AccessControl {
 
     // Constructor initializes the token with name, symbol, and owner
     // Also handles token distribution and minting
-    constructor(address defaultAdmin, address preservationProjectsVestingContract)
+    constructor()
         ERC20("Araracoin", "ARARA") // Initialize the ERC20 token with a name and symbol
         ERC20Permit("Araracoin") // Enable ERC20 Permit functionality for approvals        
     {
         // Setup admin role and approvers
-        managerWallet1 = defaultAdmin;
         _grantRole(MANAGER_ROLE, managerWallet1);
         _grantRole(MANAGER_ROLE, managerWallet2);
         _grantRole(MANAGER_ROLE, managerWallet3);
+        _grantRole(MANAGER_ROLE, managerWallet4);
+        _grantRole(MANAGER_ROLE, managerWallet5);
 
         taxPercentage = 0; // Set initial tax percentage to 0
 
         // Add address(0) and the initial owner to the whitelist of addresses that can trade before trading is enabled
         _canTrade.add(address(0)); 
-        _canTrade.add(defaultAdmin);
+        _canTrade.add(managerWallet1);
 
         // Mint the total supply to the deployer of the contract
         _mint(msg.sender, TOTAL_SUPPLY);
@@ -106,7 +109,7 @@ contract AraraCoin is ERC20, ERC20Permit, AccessControl {
         _transfer(msg.sender, companyVestingWallet, 9_600_000_000 * 10 ** 18);  // 9.6% to comapny vesting
         _transfer(msg.sender, foundersVestingWallet, 5_600_000_000 * 10 ** 18); // 5.6% to founders vesting
         _transfer(msg.sender, teamVestingWallet, 4_800_000_000 * 10 ** 18);  // 4.8% to team vesting
-        _transfer(msg.sender, preservationProjectsVestingContract, TOTAL_SUPPLY * 20 / 100); // 20% to preservation projects
+        _transfer(msg.sender, preservationProjectsVestingWallet, TOTAL_SUPPLY * 20 / 100); // 20% to preservation projects
     }
     // Private function to reset approvals if expired
     function _resetApprovalIfExpired(bytes32 txHash) private {
@@ -117,6 +120,8 @@ contract AraraCoin is ERC20, ERC20Permit, AccessControl {
             delete approval.approvedBy[managerWallet1];
             delete approval.approvedBy[managerWallet2];
             delete approval.approvedBy[managerWallet3];
+            delete approval.approvedBy[managerWallet4];
+            delete approval.approvedBy[managerWallet5];
         }
     }
     // Private function to process a new approval
